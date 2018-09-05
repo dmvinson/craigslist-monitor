@@ -1,4 +1,5 @@
 import traceback
+import threading
 import requests
 import time
 import queue
@@ -9,36 +10,51 @@ from lxml import html
 class QueryMonitor(threading.Thread):
 
     def __init__(self, feed_url: str, notify_queue: queue.Queue, delay: int = 60, redis_cli=None):
+        threading.Thread.__init__(self)
         self.feed_url = feed_url
         self.delay = delay
         if redis_cli:
             self.redis_cli = redis_cli
+        else:
+            self.redis_cli = redis.StrictRedis()
+        self.notify_queue = notify_queue
 
-    def monitor(self):
-        saved_ids = redis_cli.get(self.feed_url)
+    def run(self):
+        saved_ids = self.redis_cli.get(self.feed_url)
         if not saved_ids:
             self.initialize_set()
+            saved_ids = self.redis_cli.get(self.feed_url)
             time.sleep(self.delay)
+        saved_ids = eval(saved_ids)
         while True:
+            print('Starting monitor loop')
             current_listings = self.get_listings()
             current_listing_ids = self.get_listing_ids(current_listings)
             new_ids = [
-                listing for listing in listing_ids if listing not in saved_ids]
+                listing for listing in current_listing_ids if listing not in saved_ids
+            ]
             if new_ids:
-                map(self.notify_queue.put, new_ids)
+                map(self.notify_queue.put,
+                    [(i, self.feed_url) for i in new_ids]
+                    )
+            else:
+                print('No new listings added')
             self.redis_cli.set(self.feed_url, current_listing_ids)
             self.saved_ids = current_listing_ids
             time.sleep(self.delay)
 
     def initialize_set(self):
+        print('Initializing DB')
         listing_ids = None
         while listing_ids is None:
             listing_ids = self.get_listing_ids(self.get_listings())
         self.redis_cli.set(self.feed_url, listing_ids)
+        print('Starting with IDs')
+        print(listing_ids)
 
     def get_listings(self):
-        page = get_listings_page()
-        if not page:
+        page = self.get_listings_page()
+        if page is None:
             return None
         listings = page.cssselect('li.result-row')
         return listings
@@ -50,6 +66,7 @@ class QueryMonitor(threading.Thread):
                 listing_ids.add(l.attrib['data-pid'])
             except KeyError:
                 continue
+        print(listings[0].attrib['data-pid'])
         return listing_ids
 
     def get_listings_page(self):

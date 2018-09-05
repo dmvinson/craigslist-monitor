@@ -1,18 +1,28 @@
 import enum
+import queue
 import traceback
+import threading
 from lxml import html
 import util
 
 SEARCH_ENDPOINT = '/search/sss'
 
 
-class QueryNotifier(object):
+class NotificationMethod(enum.Enum):
+    PRINT = enum.auto()
+    SLACK = enum.auto()
+    FB_MSG = enum.auto()
+
+
+class QueryNotifier(threading.Thread):
 
     def __init__(self, pid_queue: queue.Queue, notify_method: NotificationMethod = NotificationMethod.PRINT):
+        threading.Thread.__init__(self)
         self.pid_queue = pid_queue
         self.notify_method = notify_method
 
     def run(self):
+        print('Listening for IDs')
         while 1:
             listing_id, feed_url = self.pid_queue.get()
             base_url = util.get_base_url(feed_url)
@@ -46,7 +56,7 @@ class QueryNotifier(object):
             price = price_elements[0].text_content()
         try:
             img_url = page.cssselect('[data-imgid] > img')[0].attrib['src']
-        except IndexError, KeyError:
+        except (IndexError, KeyError) as e:
             img_url = 'Images not found'
             traceback.print_exc()
         try:
@@ -61,7 +71,7 @@ class QueryNotifier(object):
         }
 
     def notify(self, listing_info):
-        if self.notify_method = NotificationMethod.PRINT:
+        if self.notify_method == NotificationMethod.PRINT:
             self.notify_print(listing_info)
 
     def notify_print(self, listing_info):
@@ -73,9 +83,3 @@ class QueryNotifier(object):
         Images: {img_url}
         """
         print(msg)
-
-
-class NotificationMethod(enum.Enum):
-    PRINT = enum.auto()
-    SLACK = enum.auto()
-    FB_MSG = enum.auto()
