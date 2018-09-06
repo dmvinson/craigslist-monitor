@@ -28,6 +28,9 @@ class QueryMonitor(threading.Thread):
         saved_ids = eval(saved_ids)
         while True:
             current_listings = self.get_listings()
+            if current_listings is None:
+                time.sleep(self.delay/5)
+                continue
             current_listing_ids = self.get_listing_ids(current_listings)
             new_ids = [
                 listing for listing in current_listing_ids if listing not in saved_ids
