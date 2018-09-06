@@ -1,18 +1,34 @@
 import enum
+import os
 import queue
-import requests
-import traceback
 import threading
+import traceback
+
+import requests
+import slacker
 from lxml import html
+
 import util
 
 SEARCH_ENDPOINT = '/search/sss'
+
+TEXT_MSG = """New Listing!
+Title: {title}
+URL: {url}
+Price: {price}
+Location: {location}
+Images: {img_url}
+"""
 
 
 class NotificationMethod(enum.Enum):
     PRINT = enum.auto()
     SLACK = enum.auto()
     FB_MSG = enum.auto()
+
+
+slack_token = os.environ('CRAIGSLIST_SLACK_TOKEN')
+slack_client = slacker.Slacker(slack_token)
 
 
 class QueryNotifier(threading.Thread):
@@ -50,16 +66,60 @@ class QueryNotifier(threading.Thread):
     def notify(self, listing_info):
         if self.notify_method == NotificationMethod.PRINT:
             self.notify_print(listing_info)
+        elif self.notify_method == NotificationMethod.SLACK:
+            notify_slack(listing_info)
 
     def notify_print(self, listing_info):
-        msg = """New Listing!
-Title: {title}
-URL: {url}
-Price: {price}
-Location: {location}
-Images: {img_url}
-        """.format(**listing_info)
+        msg = TEXT_MSG.format(**listing_info)
         print(msg)
+
+
+def notify_slack(listing_info):
+    buttons = make_buttons_image_urls(listing_info['img_url'])
+    buttons.insert(
+        0, {'type': 'button', 'text': 'View Listing',
+            'url': listing_info['url']}
+    )
+    attachments = [
+        {
+            'title': listing_info['title'],
+            'title_link': listing_info['url'],
+            'image_url': listing_info['img_url'] if isinstance(listing_info['img_url'], str) else listing_info['img_url'][0],
+            'fields': [
+                {
+                    'title': 'Price',
+                    'value': listing_info['price'],
+                    'short': True
+                },
+                {
+                    'title': 'Location',
+                    'value': listing_info['location'],
+                    'short': True
+                }
+            ],
+            'actions': buttons,
+            'footer': 'Craigslist Monitor'
+        }
+    ]
+    slack_client.chat.post_message('#general', attachments=attachments)
+
+
+def make_buttons_image_urls(img_urls):
+    if isinstance(img_urls, list):
+        img_buttons = []
+        for i in range(0, len(img_urls)):
+            action_data = {
+                'type': 'button',
+                'text': "Image {}".format(str(i+1)),
+                'url': img_urls[i]
+            }
+            img_buttons.append(action_data)
+        return [img_buttons]
+    return [{
+        'type': 'button',
+        'text': 'Main Image',
+        'url': img_urls
+    }]
 
 
 def extract_product_details(listing_page):
