@@ -27,7 +27,7 @@ class NotificationMethod(enum.Enum):
     FB_MSG = enum.auto()
 
 
-slack_token = os.environ('CRAIGSLIST_SLACK_TOKEN')
+slack_token = os.environ['CRAIGSLIST_SLACK_TOKEN']
 slack_client = slacker.Slacker(slack_token)
 
 
@@ -139,7 +139,12 @@ def extract_product_details(listing_page):
     except (IndexError, KeyError) as e:
         img_url = 'N/A'
     try:
-        location = listing_page.cssselect('div.mapaddress')[0].text_content()
+        location = listing_page.cssselect('span.postingtitletext > small')
+        if not location:
+            location = listing_page.cssselect('div.mapaddress')
+        if not location:
+            location = 'Location not found'
+        location = location[0].text_content().strip('()')
     except IndexError:
         location = 'Location not found'
     return {
