@@ -84,7 +84,6 @@ def notify_slack(listing_info):
         {
             'title': listing_info['title'],
             'title_link': listing_info['url'],
-            'image_url': listing_info['img_url'] if isinstance(listing_info['img_url'], str) else listing_info['img_url'][0],
             'fields': [
                 {
                     'title': 'Price',
@@ -101,6 +100,10 @@ def notify_slack(listing_info):
             'footer': 'Craigslist Monitor'
         }
     ]
+    if isinstance(listing_info['img_url'], list):
+        attachments[0]['image_url'] = listing_info['img_url']
+    elif isinstance(listing_info['img_url'], str) and listing_info['img_url'] != 'N/A':
+        attachments[0]['image_url'] = listing_info['img_url']
     slack_client.chat.post_message('#general', attachments=attachments)
 
 
@@ -134,17 +137,17 @@ def extract_product_details(listing_page):
     else:
         price = price_elements[0].text_content()
     try:
-        img_url = listing_page.cssselect(
-            '[data-imgid] > img')[0].attrib['src']
+        img_elements = listing_page.cssselect(
+            '[data-imgid] > img:not([title])'
+        )
+        img_url = [img.attrib['src'] for img in img_elements]
     except (IndexError, KeyError) as e:
         img_url = 'N/A'
     try:
         location = listing_page.cssselect('span.postingtitletext > small')
         if not location:
             location = listing_page.cssselect('div.mapaddress')
-        if not location:
-            location = 'Location not found'
-        location = location[0].text_content().strip('()')
+        location = location[0].text_content().strip(' ()')
     except IndexError:
         location = 'Location not found'
     return {
