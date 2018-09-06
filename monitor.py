@@ -27,16 +27,14 @@ class QueryMonitor(threading.Thread):
             time.sleep(self.delay)
         saved_ids = eval(saved_ids)
         while True:
-            print('Starting monitor loop')
             current_listings = self.get_listings()
             current_listing_ids = self.get_listing_ids(current_listings)
             new_ids = [
                 listing for listing in current_listing_ids if listing not in saved_ids
             ]
             if new_ids:
-                map(self.notify_queue.put,
-                    [(i, self.feed_url) for i in new_ids]
-                    )
+                for i in new_ids:
+                    self.notify_queue.put((i, self.feed_url))
             else:
                 print('No new listings added')
             self.redis_cli.set(self.feed_url, current_listing_ids)
