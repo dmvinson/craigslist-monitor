@@ -1,6 +1,8 @@
 import enum
+import json
 import os
 import queue
+import re
 import threading
 import traceback
 
@@ -19,6 +21,8 @@ Price: {price}
 Location: {location}
 Images: {img_url}
 """
+
+IMG_DATA_REGEXP = r"imgList = (.*?);"
 
 
 class NotificationMethod(enum.Enum):
@@ -114,7 +118,6 @@ def notify_slack(listing_info):
 
 def make_buttons_image_urls(img_urls):
     if isinstance(img_urls, list):
-        print(img_urls)
         img_buttons = []
         for i in range(0, len(img_urls)):
             action_data = {
@@ -123,7 +126,6 @@ def make_buttons_image_urls(img_urls):
                 'url': img_urls[i]
             }
             img_buttons.append(action_data)
-        print(img_buttons)
         return img_buttons
     return {
         'type': 'button',
@@ -147,10 +149,12 @@ def extract_product_details(listing_page):
         price = price_elements[0].text_content()
     info['price'] = price
     try:
-        img_elements = listing_page.cssselect(
-            '[data-imgid].slide > img'
-        )
-        img_url = [img.attrib['src'] for img in img_elements]
+        for tag in listing_page.cssselect('script'):
+            if 'imgList' in tag.text_content():
+                break
+        data_str = re.search(IMG_DATA_REGEXP, tag.text_content())[1]
+        data = json.loads(data_str)
+        img_url = [img['url'] for img in data]
     except (IndexError, KeyError) as e:
         img_url = 'N/A'
     info['img_url'] = img_url
