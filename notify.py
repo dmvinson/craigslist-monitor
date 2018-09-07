@@ -75,6 +75,7 @@ class QueryNotifier(threading.Thread):
 
 
 def notify_slack(listing_info):
+    print('Notification info:', listing_info)
     buttons = make_buttons_image_urls(listing_info['img_url'])
     buttons.insert(
         0, {'type': 'button', 'text': 'View Listing',
@@ -84,6 +85,8 @@ def notify_slack(listing_info):
         {
             'title': listing_info['title'],
             'title_link': listing_info['url'],
+            'color': '#800080',
+            'pretext': 'New Listing!',
             'fields': [
                 {
                     'title': 'Price',
@@ -100,8 +103,10 @@ def notify_slack(listing_info):
             'footer': 'Craigslist Monitor'
         }
     ]
-    if isinstance(listing_info['img_url'], list):
-        attachments[0]['image_url'] = listing_info['img_url']
+    if 'attribs' in listing_info:
+        attachments[0]['text'] = listing_info['attribs']
+    if isinstance(listing_info['img_url'], list) and listing_info['img_url']:
+        attachments[0]['image_url'] = listing_info['img_url'][0]
     elif isinstance(listing_info['img_url'], str) and listing_info['img_url'] != 'N/A':
         attachments[0]['image_url'] = listing_info['img_url']
     slack_client.chat.post_message('#general', attachments=attachments)
@@ -109,6 +114,7 @@ def notify_slack(listing_info):
 
 def make_buttons_image_urls(img_urls):
     if isinstance(img_urls, list):
+        print(img_urls)
         img_buttons = []
         for i in range(0, len(img_urls)):
             action_data = {
@@ -117,32 +123,37 @@ def make_buttons_image_urls(img_urls):
                 'url': img_urls[i]
             }
             img_buttons.append(action_data)
-        return [img_buttons]
-    return [{
+        print(img_buttons)
+        return img_buttons
+    return {
         'type': 'button',
         'text': 'Main Image',
         'url': img_urls
-    }]
+    }
 
 
 def extract_product_details(listing_page):
+    info = {}
     try:
         title_el = listing_page.get_element_by_id('titletextonly')
         title = title_el.text_content()
     except KeyError:
         title = 'Title Not Found'
+    info['title'] = title
     price_elements = listing_page.find_class('price')
     if not price_elements:
         price = 'N/A'
     else:
         price = price_elements[0].text_content()
+    info['price'] = price
     try:
         img_elements = listing_page.cssselect(
-            '[data-imgid] > img:not([title])'
+            '[data-imgid].slide > img'
         )
         img_url = [img.attrib['src'] for img in img_elements]
     except (IndexError, KeyError) as e:
         img_url = 'N/A'
+    info['img_url'] = img_url
     try:
         location = listing_page.cssselect('span.postingtitletext > small')
         if not location:
@@ -150,9 +161,19 @@ def extract_product_details(listing_page):
         location = location[0].text_content().strip(' ()')
     except IndexError:
         location = 'Location not found'
-    return {
-        'title': title,
-        'price': price,
-        'img_url': img_url,
-        'location': location
-    }
+    info['location'] = location
+    attribs = parse_attributes(listing_page)
+    if attribs:
+        info['attribs'] = attribs
+    return info
+
+
+def parse_attributes(listing_page):
+    attr_elements = listing_page.cssselect('p.attrgroup > span')
+    for a in attr_elements:
+        if a.cssselect('span.otherpostings'):  # Remove 'more ads by this user' text
+            attr_elements.remove(a)
+    if attr_elements:
+        return '\n'.join([a.text_content().strip() for a in attr_elements])
+    else:
+        return ''
