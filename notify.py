@@ -119,11 +119,11 @@ def notify_slack(listing_info):
 def make_buttons_image_urls(img_urls):
     if isinstance(img_urls, list):
         img_buttons = []
-        for i in range(0, len(img_urls)):
+        for i, val in enumerate(img_urls):
             action_data = {
                 'type': 'button',
                 'text': "Image {}".format(str(i+1)),
-                'url': img_urls[i]
+                'url': val
             }
             img_buttons.append(action_data)
         return img_buttons
