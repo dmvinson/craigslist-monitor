@@ -18,6 +18,7 @@ class QueryMonitor(threading.Thread):
         else:
             self.redis_cli = redis.StrictRedis()
         self.notify_queue = notify_queue
+        self.saved_ids = None
 
     def run(self):
         saved_ids = self.redis_cli.get(self.feed_url)
