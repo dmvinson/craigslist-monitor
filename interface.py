@@ -3,6 +3,7 @@ import os
 import slacker
 import websockets
 import json
+from dispatch import Command
 from util import find_url, validate_url
 
 slack_token = os.environ['CRAIGSLIST_SLACK_TOKEN']
@@ -33,12 +34,12 @@ class SlackBot(object):
         if 'add monitor' in data['text']:
             url = find_url(data['text'])
             if validate_url(url):
-                self.command_queue.put(('add', url)) # sync queue fine as long as infinite capacity
+                self.command_queue.put((Command.ADD, url)) # sync queue fine as long as infinite capacity
                 return 'Added monitor for listings at {}'.format(url)
         elif 'remove monitor' in data['text']:
             url = find_url(data['text'])
             if validate_url(url):
-                self.command_queue.put(('remove', url))
+                self.command_queue.put((Command.REMOVE, url))
                 return 'Removed monitor for listings at {}'.format(url)
     
 

@@ -179,5 +179,4 @@ def parse_attributes(listing_page):
             attr_elements.remove(a)
     if attr_elements:
         return '\n'.join([a.text_content().strip() for a in attr_elements])
-    else:
-        return ''
+    return ''

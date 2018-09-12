@@ -3,7 +3,7 @@ import urllib.parse
 
 
 def find_url(text):
-    split = text.split('')
+    split = text.split(' ')
     for word in split:
         if word.startswith('http') or word.startswith('https'):
             return word
@@ -11,6 +11,8 @@ def find_url(text):
 
 def validate_url(url):
     parsed = urllib.parse.urlparse(url)
+    if 'search' not in url:
+        return False
     return all([parsed.scheme, parsed.netloc, parsed.path])
 
 

@@ -15,9 +15,10 @@ class Command(enum.Enum):
     ADD = enum.auto()
     REMOVE = enum.auto()
 
-class Dispatch(object):
+class Dispatch(threading.Thread):
 
     def __init__(self, notify_queue: queue.Queue):
+        threading.Thread.__init__(self)
         self.redis_cli = redis.StrictRedis(db=10)
         self.command_queue = queue.Queue()
         self.notify_queue = notify_queue

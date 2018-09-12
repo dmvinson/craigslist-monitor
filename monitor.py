@@ -1,10 +1,13 @@
-import traceback
-import threading
-import requests
-import time
 import queue
+import threading
+import time
+import traceback
+
 import redis
+import requests
 from lxml import html
+
+# TODO: Find better solution for getting types than eval
 
 
 class QueryMonitor(threading.Thread):

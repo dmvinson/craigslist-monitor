@@ -1,20 +1,21 @@
 import redis
+import asyncio
 import queue
 from notify import QueryNotifier, NotificationMethod
 from monitor import QueryMonitor
+from dispatch import Dispatch
+from interface import SlackBot
 
-REDIS_DB_NUMBER = 10
+
 
 
 def main():
-    redis_cli = redis.StrictRedis(db=10)
     notify_queue = queue.Queue()
-    notifier = QueryNotifier(notify_queue, NotificationMethod.PRINT)
+    notifier = QueryNotifier(notify_queue, NotificationMethod.SLACK)
     notifier.start()
-    monitor = QueryMonitor(
-        'https://newyork.craigslist.org/search/sss', notify_queue, redis_cli=redis_cli)
-    monitor.start()
-    monitor.join()
+    dispatch = Dispatch(notifier.pid_queue)
+    dispatch.run()
+    bot = SlackBot()
 
 
 if __name__ == "__main__":
