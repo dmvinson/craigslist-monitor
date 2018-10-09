@@ -1,47 +1,62 @@
 import asyncio
-import os
-import slacker
-import websockets
 import json
+import os
+import threading
+
+import slacker
+import websocket
+
+import config
 from dispatch import Command
 from util import find_url, validate_url
 
-slack_token = os.environ['CRAIGSLIST_SLACK_TOKEN']
-slack_client = slacker.Slacker(slack_token)
 
-class SlackBot(object):
+class SlackBot(threading.Thread):
 
     def __init__(self, command_queue):
-        slack_token = os.environ['CRAIGSLIST_SLACK_TOKEN']
-        self.client = slacker.Slacker(slack_token) 
+        threading.Thread.__init__(self)
+        slack_token = config.CRAIGSLIST_SLACK_TOKEN
+        self.client = slacker.Slacker(slack_token)
         self.command_queue = command_queue
 
-    async def listen(self):
+    def run(self):
+        self.listen()
+
+    def listen(self):
+        print('Connecting RTM')
         resp = self.client.rtm.connect()
         if not resp.successful:
             print('Error connecting to RTM:', resp.error)
             return
+        print(resp.body['url'])
         ws_url = resp.body['url']
-        async with websockets.connect(ws_url, ssl=True) as ws:
-            async for event in ws:
-                msg = await self.handle(event)
-                if msg is None:
-                    continue
-                await ws.send(msg)
+        print('Connecting websocket')
+        ws = websocket.WebSocketApp(
+            ws_url, on_message=self.on_msg,
+            on_error=self.on_error,
+            on_close=self.on_close
+        )
+        ws.run_forever()
 
-    async def handle(self, event):
-        data = json.loads(event)
+    def on_msg(self, ws, msg):
+        data = json.loads(msg)
+        print(msg)
         if 'add monitor' in data['text']:
+            print('add command')
             url = find_url(data['text'])
             if validate_url(url):
-                self.command_queue.put((Command.ADD, url)) # sync queue fine as long as infinite capacity
-                return 'Added monitor for listings at {}'.format(url)
+                # sync queue fine as long as infinite capacity
+                print('Added monitor for listings at {}'.format(url))
+                self.command_queue.put((Command.ADD, url))
         elif 'remove monitor' in data['text']:
+            print('remove command')
             url = find_url(data['text'])
             if validate_url(url):
+                print('Removed monitor for listings at {}'.format(url))
                 self.command_queue.put((Command.REMOVE, url))
-                return 'Removed monitor for listings at {}'.format(url)
-    
 
-    
-    
+    def on_error(self, ws, error):
+        print(error)
+
+    def on_close(self, ws):
+        print('Socket closed')

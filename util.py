@@ -3,8 +3,10 @@ import urllib.parse
 
 
 def find_url(text):
+    text = text.replace('\\/', '/')
     split = text.split(' ')
     for word in split:
+        word = word.strip('<>')
         if word.startswith('http') or word.startswith('https'):
             return word
     return ''

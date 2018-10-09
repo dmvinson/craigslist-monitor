@@ -1,6 +1,7 @@
 import queue
 import enum
 import redis
+import threading
 
 from monitor import QueryMonitor
 
@@ -29,7 +30,7 @@ class Dispatch(threading.Thread):
             self.query_urls = set()
             self.redis_cli.set(ALL_QUERIES_KEY, self.query_urls)
         else:
-            self.query_urls = eval(query_urls)
+            self.query_urls = set(eval(query_urls))
         self.active_monitors = []
         self.make_monitors()
 
@@ -45,6 +46,7 @@ class Dispatch(threading.Thread):
             if command == Command.ADD:
                 self.add_monitor(url)
             elif command == Command.REMOVE:
+                print('Removing', url)
                 self.remove_monitor(url)
 
     def add_monitor(self, url):
@@ -55,11 +57,16 @@ class Dispatch(threading.Thread):
         self.active_monitors.append(monitor)
 
     def remove_monitor(self, url):
-        for i, monitor in enumerate(self.active_monitors):
-            if monitor.feed_url == url:
+        for i in range(len(self.active_monitors)):
+            if self.active_monitors[i].feed_url == url:
+                self.active_monitors[i].stop()
                 del self.active_monitors[i]
+                break
+        else:
+            print('No monitor found for', url)
         self.query_urls.remove(url)
         self.redis_cli.set(ALL_QUERIES_KEY, self.query_urls)
+        
 
     
     

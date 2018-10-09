@@ -10,6 +10,7 @@ import requests
 import slacker
 from lxml import html
 
+import config
 import util
 
 SEARCH_ENDPOINT = '/search/sss'
@@ -31,7 +32,7 @@ class NotificationMethod(enum.Enum):
     FB_MSG = enum.auto()
 
 
-slack_token = os.environ['CRAIGSLIST_SLACK_TOKEN']
+slack_token = config.CRAIGSLIST_SLACK_TOKEN
 slack_client = slacker.Slacker(slack_token)
 
 
@@ -155,7 +156,7 @@ def extract_product_details(listing_page):
         data_str = re.search(IMG_DATA_REGEXP, tag.text_content())[1]
         data = json.loads(data_str)
         img_url = [img['url'] for img in data]
-    except (IndexError, KeyError) as e:
+    except (IndexError, KeyError, TypeError) as e:
         img_url = 'N/A'
     info['img_url'] = img_url
     try:

@@ -22,15 +22,17 @@ class QueryMonitor(threading.Thread):
             self.redis_cli = redis.StrictRedis()
         self.notify_queue = notify_queue
         self.saved_ids = None
+        self.stopped = False
 
     def run(self):
+        print('Starting monitor for:', self.feed_url)
         saved_ids = self.redis_cli.get(self.feed_url)
         if not saved_ids:
             self.initialize_set()
             saved_ids = self.redis_cli.get(self.feed_url)
             time.sleep(self.delay)
-        saved_ids = eval(saved_ids)
-        while True:
+        saved_ids = set(eval(saved_ids))
+        while not self.stopped:
             current_listings = self.get_listings()
             if current_listings is None:
                 time.sleep(self.delay/5)
@@ -47,6 +49,7 @@ class QueryMonitor(threading.Thread):
             self.redis_cli.set(self.feed_url, current_listing_ids)
             self.saved_ids = current_listing_ids
             time.sleep(self.delay)
+        print('Ending monitor for', self.feed_url)
 
     def initialize_set(self):
         print('Initializing DB')
@@ -81,3 +84,6 @@ class QueryMonitor(threading.Thread):
             traceback.print_exc()
             return None
         return html.fromstring(r.content)
+    
+    def stop(self):
+        self.stopped = True
